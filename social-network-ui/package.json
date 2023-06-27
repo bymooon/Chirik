@@ -48,7 +48,7 @@
   "scripts": {
     "start-js": "react-scripts start",
     "start": "npm-run-all -p watch-styles start-js",
-    "build": "npm run stylelint-build && react-scripts build",
+    "build": "CI= npm run stylelint-build && react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "lint": "npx eslint \"./**/*.js\" --cache --cache-strategy content --fix",
