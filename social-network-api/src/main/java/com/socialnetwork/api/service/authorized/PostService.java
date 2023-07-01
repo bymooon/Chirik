@@ -2,10 +2,11 @@ package com.socialnetwork.api.service.authorized;
 
 import com.socialnetwork.api.exception.custom.NoPostWithSuchIdException;
 import com.socialnetwork.api.exception.custom.NoUserWithSuchCredentialsException;
-import com.socialnetwork.api.models.additional.View;
-import com.socialnetwork.api.models.base.Hashtag;
-import com.socialnetwork.api.models.base.Post;
-import com.socialnetwork.api.models.base.User;
+import com.socialnetwork.api.mapper.authorized.NotificationMapper;
+import com.socialnetwork.api.model.additional.View;
+import com.socialnetwork.api.model.base.Hashtag;
+import com.socialnetwork.api.model.base.Post;
+import com.socialnetwork.api.model.base.User;
 import com.socialnetwork.api.repository.PostRepository;
 import com.socialnetwork.api.repository.ViewRepository;
 import com.socialnetwork.api.service.CloudinaryService;
@@ -16,25 +17,37 @@ import org.modelmapper.Conditions;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
+import java.util.Objects;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static com.socialnetwork.api.util.Constants.WebSocket.QUEUE_NOTIFICATION;
 
 @Service
 @RequiredArgsConstructor
 public class PostService {
+
+  private final ViewRepository viewRepository;
   private final PostRepository postRepository;
   private final UserService userService;
   private final CloudinaryService cloudinaryService;
   private final HashtagService hashtagService;
   private final NotificationService notificationService;
   private final ModelMapper modelMapper;
-  private final ViewRepository viewRepository;
+  private final NotificationMapper notificationMapper;
+  private final SimpMessagingTemplate messagingTemplate;
+
+  public Optional<Post> findById(int id) {
+    return postRepository.findById(id);
+  }
 
   public Post getReferenceById(int id) throws NoPostWithSuchIdException {
     if (!postRepository.existsById(id)) {
@@ -43,8 +56,10 @@ public class PostService {
     return postRepository.getReferenceById(id);
   }
 
-  public Post save(Post post, String image) throws NoPostWithSuchIdException {
-    post.setCreatedDate(LocalDateTime.now());
+  public Post save(Post postToSave, String image) throws NoPostWithSuchIdException {
+    postToSave.setCreatedDate(LocalDateTime.now());
+
+    Post post = postRepository.save(postToSave);
 
     if (image != null) {
       post.setImage(cloudinaryService.uploadPostPic(image, String.valueOf(post.getId())));
@@ -58,12 +73,23 @@ public class PostService {
                   hashtagService.save(hashtag);
                 },
                 () -> hashtagService.save(new Hashtag(h, 1))
-              )
+        )
       );
     }
 
     postRepository.save(post);
-    notificationService.saveReplyRetweet(post);
+
+    if (post.getOriginalPost() != null
+            && !Objects.equals(post.getAuthor().getUsername(), post.getOriginalPost().getAuthor().getUsername())) {
+      notificationService.saveReplyRetweet(post)
+              .ifPresent(notification ->
+                      messagingTemplate.convertAndSendToUser(
+                              post.getOriginalPost().getAuthor().getUsername(),
+                              QUEUE_NOTIFICATION,
+                              notificationMapper.mapNotification(notification))
+        );
+    }
+
     return post;
   }
 
@@ -87,11 +113,22 @@ public class PostService {
   }
 
   public void delete(Post post) {
+    if (post.getImage() != null) {
+      cloudinaryService.deletePostPic(String.valueOf(post.getId()));
+    }
+
     postRepository.delete(post);
   }
 
   public List<Post> getPosts(int page, int postsNumber) {
     return postRepository.findAll(PageRequest.of(page, postsNumber, Sort.by(Sort.Direction.DESC, "createdDate"))).toList();
+  }
+
+  public List<Post> getFollowingPosts(int page, int postsNumber, List<User> followings) {
+    return postRepository.findAllByAuthorIn(
+            followings,
+            PageRequest.of(page, postsNumber, Sort.by(Sort.Direction.DESC, "createdDate"))
+    );
   }
 
   public List<Post> getUnviewedPosts(int page, int postsNumber, String currentUserUsername)
@@ -120,10 +157,6 @@ public class PostService {
             .skip(page * usersForPage).limit(usersForPage)
             .peek(f -> f.setCurrUserFollower(userService.isFollowed(currentUser, f)))
             .toList();
-  }
-
-  public boolean existsById(Integer postId) {
-    return postRepository.existsById(postId);
   }
 
   public int countPostRetweets(int id) {

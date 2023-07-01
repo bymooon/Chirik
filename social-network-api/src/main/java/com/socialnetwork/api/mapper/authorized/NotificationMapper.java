@@ -1,7 +1,7 @@
 package com.socialnetwork.api.mapper.authorized;
 
 import com.socialnetwork.api.dto.NotificationDto;
-import com.socialnetwork.api.models.base.Notification;
+import com.socialnetwork.api.model.base.Notification;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Component;
@@ -16,5 +16,9 @@ public class NotificationMapper {
 
   public List<NotificationDto> mapNotifications(List<Notification> notifications) {
     return notifications.stream().map(n -> modelMapper.map(n, NotificationDto.class)).toList();
+  }
+
+  public NotificationDto mapNotification(Notification notification) {
+    return modelMapper.map(notification, NotificationDto.class);
   }
 }

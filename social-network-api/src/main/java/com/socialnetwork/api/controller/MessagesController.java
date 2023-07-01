@@ -3,7 +3,7 @@ package com.socialnetwork.api.controller;
 import com.socialnetwork.api.dto.chat.ChatDto;
 import com.socialnetwork.api.dto.chat.CreateChatRequestDto;
 import com.socialnetwork.api.dto.chat.MessageDto;
-import com.socialnetwork.api.models.base.User;
+import com.socialnetwork.api.model.base.User;
 import com.socialnetwork.api.repository.UserRepository;
 import com.socialnetwork.api.service.MessageService;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +25,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+
+import static com.socialnetwork.api.util.Constants.WebSocket.TOPIC_MESSAGES;
+import static com.socialnetwork.api.util.Constants.WebSocket.TOPIC_MESSAGE;
 
 @RestController
 @RequestMapping("/api/messages")
@@ -113,7 +116,7 @@ public class MessagesController {
   @DeleteMapping("/chats/{chatId}")
   public ResponseEntity<Void> deleteChat(@PathVariable("chatId") int chatId) {
     messageService.deleteChat(chatId);
-    messagingTemplate.convertAndSend("/topic/messages", chatId);
+    messagingTemplate.convertAndSend(TOPIC_MESSAGES, chatId);
 
     return ResponseEntity.noContent().build();
   }
@@ -128,7 +131,7 @@ public class MessagesController {
 
     chatDto.setChatId(createdMessageDto.getChatId());
     chatDto.addMessage(createdMessageDto);
-    messagingTemplate.convertAndSend("/topic/messages", chatDto);
+    messagingTemplate.convertAndSend(TOPIC_MESSAGES, chatDto);
     return ResponseEntity.created(URI.create("/api/messages/chats/"
             + createdMessageDto.getChatId())).body(chatDto);
   }
@@ -148,7 +151,7 @@ public class MessagesController {
 
     MessageDto createdMessageDto = messageService.addMessage(messageDto, chatDto);
     List<MessageDto> updatedMessages = messageService.getMessagesByChatId(chatId);
-    messagingTemplate.convertAndSend("/topic/message", updatedMessages);
+    messagingTemplate.convertAndSend(TOPIC_MESSAGE, updatedMessages);
 
     return ResponseEntity.created(URI.create("/api/messages/"
             + createdMessageDto.getMessageId())).body(createdMessageDto);

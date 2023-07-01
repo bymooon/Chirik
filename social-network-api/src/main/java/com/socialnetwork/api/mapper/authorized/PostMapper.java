@@ -3,8 +3,8 @@ package com.socialnetwork.api.mapper.authorized;
 import com.socialnetwork.api.dto.authorized.PostDto;
 import com.socialnetwork.api.exception.custom.NoPostWithSuchIdException;
 import com.socialnetwork.api.exception.custom.NoUserWithSuchCredentialsException;
-import com.socialnetwork.api.models.base.Post;
-import com.socialnetwork.api.models.base.User;
+import com.socialnetwork.api.model.base.Post;
+import com.socialnetwork.api.model.base.User;
 import com.socialnetwork.api.service.BookmarkService;
 import com.socialnetwork.api.service.authorized.LikeService;
 import com.socialnetwork.api.service.authorized.PostService;
@@ -39,10 +39,6 @@ public class PostMapper {
   }
 
   public Post convertToPost(PostDto.Request.Editable postDto) {
-    return modelMapper.map(postDto, Post.class);
-  }
-
-  public Post convertToPost(PostDto.Request.Default postDto) {
     return modelMapper.map(postDto, Post.class);
   }
 

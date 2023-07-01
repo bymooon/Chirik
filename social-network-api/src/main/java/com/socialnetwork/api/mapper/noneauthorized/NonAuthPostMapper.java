@@ -1,10 +1,8 @@
 package com.socialnetwork.api.mapper.noneauthorized;
 
-import com.socialnetwork.api.dto.authorized.PostDto;
 import com.socialnetwork.api.dto.noneauthorized.NonAuthPostDto;
 import com.socialnetwork.api.exception.custom.NoPostWithSuchIdException;
-import com.socialnetwork.api.models.base.Post;
-import com.socialnetwork.api.models.base.User;
+import com.socialnetwork.api.model.base.Post;
 import com.socialnetwork.api.service.BookmarkService;
 import com.socialnetwork.api.service.noneauthorized.NonAuthLikeService;
 import com.socialnetwork.api.service.noneauthorized.NonAuthPostService;
@@ -19,11 +17,8 @@ import java.util.List;
 public class NonAuthPostMapper {
 
   private final ModelMapper modelMapper;
-
   private final NonAuthLikeService nonAuthLikeService;
-
   private final BookmarkService bookmarkService;
-
   private final NonAuthPostService nonAuthPostService;
 
   public NonAuthPostDto.Response.WithAuthor convertToPostDtoDefault(Post post) throws NoPostWithSuchIdException {

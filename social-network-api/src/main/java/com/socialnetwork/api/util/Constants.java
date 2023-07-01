@@ -14,6 +14,7 @@ public class Constants {
     public static final String AVATAR_PRESET = "avatarPicsPreset";
     public static final String BACKGROUND_PRESET = "backgroundPicsPreset";
     public static final String POSTS_PRESET = "postPicsPreset";
+    public static final String POSTS_ID = "postPics/";
   }
 
   public static class Request {
@@ -32,6 +33,13 @@ public class Constants {
     public static final String AUTHORIZATION_HEADER = "Authorization";
     public static final String WRONG_PASSWORD = "You entered an incorrect password. Check the password.";
     public static final String CONFIRMATION_REQUIRED = "The account exists but needs to be activated.";
+  }
+
+  public static class WebSocket {
+    public static final String TOPIC_POSTS = "/topic/posts";
+    public static final String TOPIC_MESSAGES = "/topic/messages";
+    public static final String TOPIC_MESSAGE = "/topic/message";
+    public static final String QUEUE_NOTIFICATION = "/queue/notification";
   }
 
   public static class Exception {

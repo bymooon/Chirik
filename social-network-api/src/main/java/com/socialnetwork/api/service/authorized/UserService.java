@@ -5,10 +5,11 @@ import com.socialnetwork.api.exception.custom.AccessDeniedException;
 import com.socialnetwork.api.exception.custom.EmailException;
 import com.socialnetwork.api.exception.custom.NoUserWithSuchCredentialsException;
 import com.socialnetwork.api.exception.custom.TokenInvalidException;
-import com.socialnetwork.api.models.additional.Follow;
-import com.socialnetwork.api.models.additional.keys.FollowPk;
-import com.socialnetwork.api.models.auth.ConfirmationToken;
-import com.socialnetwork.api.models.base.User;
+import com.socialnetwork.api.mapper.authorized.NotificationMapper;
+import com.socialnetwork.api.model.additional.Follow;
+import com.socialnetwork.api.model.additional.keys.FollowPk;
+import com.socialnetwork.api.model.auth.ConfirmationToken;
+import com.socialnetwork.api.model.base.User;
 import com.socialnetwork.api.repository.FollowsRepository;
 import com.socialnetwork.api.repository.UserRepository;
 import com.socialnetwork.api.security.oauth2.AuthProvider;
@@ -20,6 +21,7 @@ import com.socialnetwork.api.service.FollowsService;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.Conditions;
 import org.modelmapper.ModelMapper;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -29,6 +31,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.socialnetwork.api.util.Constants.Image.BASE_64_PREFIX;
+import static com.socialnetwork.api.util.Constants.WebSocket.QUEUE_NOTIFICATION;
 
 @Service
 @RequiredArgsConstructor
@@ -36,13 +39,15 @@ public class UserService {
 
   private final UserRepository userRepository;
   private final FollowsRepository followsRepository;
+  private final EmailService emailService;
   private final NotificationService notificationService;
   private final FollowsService followsService;
   private final ConfirmationTokenService confirmationTokenService;
   private final CloudinaryService cloudinaryService;
   private final ModelMapper modelMapper;
-  private final EmailService emailService;
+  private final NotificationMapper notificationMapper;
   private final PasswordEncoder passwordEncoder;
+  private final SimpMessagingTemplate messagingTemplate;
 
   public boolean existsByUsername(String username) {
     return userRepository.existsByUsername(username);
@@ -94,12 +99,6 @@ public class UserService {
             .toList();
   }
 
-  public List<User> getFollowersUnauth(String queryUsername, int page, int usersForPage)
-          throws NoUserWithSuchCredentialsException {
-    return findByUsername(queryUsername).getFollowers().stream().map(Follow::getFollowerUser)
-            .skip(page * usersForPage).limit(usersForPage).toList();
-  }
-
   public List<User> getFollowed(String queryUsername, String currentUserUsername,
                                 int page, int usersForPage) throws NoUserWithSuchCredentialsException {
     User currentUser = findByUsername(currentUserUsername);
@@ -131,8 +130,9 @@ public class UserService {
 
     if (!editedUser.getProfileImage().isEmpty()) {
       if (editedUser.getProfileImage().startsWith(BASE_64_PREFIX)) {
-        editedUser.setProfileImage(
-                cloudinaryService.uploadProfilePic(editedUser.getProfileImage(), String.valueOf(userToUpdate.getId()))
+        editedUser.setProfileImage(cloudinaryService.uploadProfilePic(
+                editedUser.getProfileImage(),
+                String.valueOf(userToUpdate.getId()))
         );
       }
     } else if (userToUpdate.getProfileImage() != null) {
@@ -154,16 +154,22 @@ public class UserService {
 
     modelMapper.getConfiguration().setPropertyCondition(Conditions.isNotNull());
     modelMapper.map(editedUser, userToUpdate);
+
     userRepository.save(userToUpdate);
     return userToUpdate;
   }
+
 
   public boolean followUnfollow(String username, String currentUserUsername) throws NoUserWithSuchCredentialsException {
     User user = findByUsername(username);
     User currentUser = findByUsername(currentUserUsername);
     if (!isFollowed(currentUser, user)) {
       followsRepository.save(new Follow(currentUser, user));
-      notificationService.saveFollow(currentUser, user);
+      messagingTemplate.convertAndSendToUser(
+              username,
+              QUEUE_NOTIFICATION,
+              notificationMapper.mapNotification(notificationService.saveFollow(currentUser, user))
+      );
       return true;
     } else {
       followsRepository.deleteById(new FollowPk(currentUser.getId(), user.getId()));
